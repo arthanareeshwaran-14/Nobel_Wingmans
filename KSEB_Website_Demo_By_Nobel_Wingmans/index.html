@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KSEB Monitoring System — Live Data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo">⚡</div>
+        <div class="titles">
+          <h1>KSEB Monitoring System</h1>
+          <p>Kerala State Electricity Board - SHIELD Monitoring</p>
+        </div>
+      </div>
+      <div class="header-controls">
+        <button class="kseb-logo-btn" id="firebaseConfigBtn" title="Firebase Configuration">
+          <div class="kseb-logo">
+            <span class="kseb-text">KSEB</span>
+            <div class="kseb-malayalam"></div>
+          </div>
+        </button>
+        <div class="clock" id="liveClock"></div>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <a class="tab active" href="#live" data-tab="live">Live Data</a>
+      <a class="tab" href="#alerts" data-tab="alerts">Alerts & Map</a>
+      <a class="tab" href="#devices" data-tab="devices">Device Status</a>
+    </nav>
+
+    <main class="container" id="view-live">
+      <section class="panel panel-large">
+        <div class="panel-header">
+          <h2>Live Current Reading</h2>
+          <span class="chip" id="healthChip">NORMAL</span>
+        </div>
+        <div class="live-reading">
+          <div class="reading-value" id="currentValue">0.00</div>
+          <div class="reading-unit">A</div>
+          <div class="reading-updated">Last update: <span id="lastUpdated">—</span></div>
+          <div class="reading-voltage">Voltage: <span id="voltageNow">—</span> V</div>
+          <div id="dataSource" style="font-size: 12px; color: #6c757d; margin-top: 5px;">Data Source: <span id="dataSourceStatus">Simulation</span></div>
+          <div id="updateTimer" style="font-size: 11px; color: #6c757d; margin-top: 2px;">Next update: <span id="updateCountdown">—</span></div>
+          <div class="controls">
+            <button class="btn btn-success" id="btnConnectFirebase">🔗 Connect</button>
+            <button class="btn btn-danger" id="btnStop">■ Stop</button>
+            <button class="btn btn-warn" id="btnReset">↻ Reset</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel stats">
+        <h3>Statistics</h3>
+        <div class="stats-grid-rows">
+          <div class="row">
+            <div class="stat-card">
+              <div class="stat-value" id="minCurrent">0.00</div>
+              <div class="stat-label">Min Current (A)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="avgCurrent">0.00</div>
+              <div class="stat-label">Avg Current (A)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="maxCurrent">0.00</div>
+              <div class="stat-label">Max Current (A)</div>
+            </div>
+          </div>
+          <div class="row">
+            <div class="stat-card">
+              <div class="stat-value" id="minVoltage">0.00</div>
+              <div class="stat-label">Min Voltage (V)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="avgVoltage">0.00</div>
+              <div class="stat-label">Avg Voltage (V)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="maxVoltage">0.00</div>
+              <div class="stat-label">Max Voltage (V)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <main class="container grid-2" id="view-alerts" style="display:none;">
+      <section class="panel" style="max-height: 70vh; overflow: auto;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <h2 style="margin:0;">Alerts & Notifications</h2>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:600; color:#6b778c;"><input type="checkbox" id="followToggle"/> Follow selected sensor</label>
+            <button id="btnExportCsv" class="btn" style="background:#e9f2ff;color:#0a4c8e;">Export CSV</button>
+          </div>
+        </div>
+        <div id="alertReport" class="alert-meta" style="margin:6px 0 10px;">Total: 0 • Warnings: 0 • Critical: 0</div>
+        <div id="alertsFeed" class="alerts-feed"></div>
+      </section>
+      <section class="panel">
+        <h2>Device Locations</h2>
+        <div id="mapAlerts" class="map">
+          <button class="satellite-toggle" id="satelliteToggleAlerts">🛰️ Satellite</button>
+        </div>
+      </section>
+    </main>
+
+    <main class="container" id="view-devices" style="display:none;">
+      <section class="panel" style="grid-column: 1 / -1;">
+        <input id="deviceSearch" class="input" placeholder="Search devices by name, ID or location" style="width:100%; padding:12px 14px; border:1px solid #dfe6ef; border-radius:12px;" />
+      </section>
+      <section class="device-cards" id="deviceCards" style="grid-column: 1 / -1;"></section>
+
+      <section class="devices-row" style="grid-column: 1 / -1;">
+        <div class="panel grid-3 service-overview">
+        <h2 class="span-3">Service Overview</h2>
+        <div class="service-card healthy">
+          <div class="service-title">Healthy</div>
+          <div class="service-value" id="countHealthy">0</div>
+        </div>
+        <div class="service-card soon">
+          <div class="service-title">Service Soon</div>
+          <div class="service-value" id="countSoon">0</div>
+        </div>
+        <div class="service-card required">
+          <div class="service-title">Service Required</div>
+          <div class="service-value" id="countRequired">0</div>
+        </div>
+        </div>
+
+        <div class="panel">
+          <h2>Device Locations</h2>
+          <div id="mapDevices" class="map">
+            <button class="satellite-toggle" id="satelliteToggleDevices">🛰️ Satellite</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">Kerala State Electricity Board © <span id="year"></span> | Government of Kerala</footer>
+
+    <!-- Firebase Configuration Modal -->
+    <div class="modal-overlay" id="firebaseModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>⚡ Firebase Configuration</h3>
+          <button class="modal-close" id="closeModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="modalFirebaseUrl">Firebase Realtime Database URL:</label>
+            <input type="text" id="modalFirebaseUrl" placeholder="https://your-project.firebaseio.com" 
+                   value="https://kesb-demo---shield-default-rtdb.firebaseio.com">
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-primary" id="modalConnectBtn">Connect</button>
+            <button class="btn btn-secondary" id="modalTestBtn">Test with Sample Data</button>
+            <button class="btn btn-outline" id="modalCancelBtn">Cancel</button>
+          </div>
+          <div id="modalFirebaseStatus" class="modal-status"></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="assets/js/firebase-config.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/common.js"></script>
+    <script src="assets/js/live.js"></script>
+    <script src="assets/js/alerts.js"></script>
+    <script src="assets/js/devices.js"></script>
+    <script>
+      (function(){
+        const views = {
+          live: document.getElementById('view-live'),
+          alerts: document.getElementById('view-alerts'),
+          devices: document.getElementById('view-devices')
+        };
+        const tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+        // Ensure SPA behavior: prevent default navigation
+        tabs.forEach(t => {
+          t.addEventListener('click', (e) => {
+            e.preventDefault();
+            const name = t.dataset.tab;
+            if (name) location.hash = '#' + name;
+          });
+        });
+        function show(name){
+          Object.keys(views).forEach(k=>{ views[k].style.display = (k===name)?'grid':''; if(k!==name) views[k].style.display='none'; });
+          tabs.forEach(t=> t.classList.toggle('active', t.dataset.tab===name));
+          if(name==='alerts' && window.initAlertsMap) window.initAlertsMap();
+          if(name==='devices' && window.initDevicesMap) window.initDevicesMap();
+          try { localStorage.setItem('kseb_tab', name); } catch(e) {}
+        }
+        function route(){
+          let h = (location.hash||'').replace('#','');
+          if(!h){ h = localStorage.getItem('kseb_tab') || 'live'; location.hash = '#' + h; }
+          show(h);
+        }
+        window.addEventListener('hashchange', route);
+        route();
+      })();
+    </script>
+  </body>
+</html>
+
+
+

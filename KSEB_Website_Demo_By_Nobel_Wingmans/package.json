@@ -1,0 +1,14 @@
+{
+  "name": "kseb-voltage-monitoring",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["backend"],
+  "scripts": {
+    "dev": "npm run dev --workspace=backend",
+    "start": "npm run start --workspace=backend",
+    "install:backend": "npm install --workspace=backend"
+  }
+}
+
+
+
